@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="container">
+    <h1>Admin Dashboard</h1>
+    <div id="admin-message"></div>
+    <button id="logout-button">Đăng xuất</button>
+    <h2>Danh sách người dùng</h2>
+    <table id="user-table">
+        <thead>
+        <tr>
+            <th>Tên người dùng</th>
+            <th>Email</th>
+            <th>Vai trò</th>
+        </tr>
+        </thead>
+        <tbody id="user-list">
+        </tbody>
+    </table>
+</div>
+<script src="script.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const userList = document.getElementById('user-list');
+        const adminMessage = document.getElementById('admin-message');
+
+
+        const fetchUsers = async () => {
+            try {
+                const response = await fetch('/api/users');
+                const data = await response.json();
+
+                if (data.success) {
+                    userList.innerHTML = '';
+                    data.users.forEach(user => {
+                        const row = `
+                             <tr>
+                                <td>${user.username}</td>
+                                <td>${user.email}</td>
+                                <td>${user.role}</td>
+                             </tr>
+                         `;
+                        userList.innerHTML += row;
+                    });
+
+                    adminMessage.textContent = 'Đã xác minh là Admin.';
+                    adminMessage.className = 'message success';
+                    setTimeout(() => {
+                        adminMessage.classList.add("hidden");
+
+                    }, 1000)
+                    adminMessage.classList.remove('hidden'); // Show message
+                } else {
+                    adminMessage.textContent = data.message;
+                    adminMessage.className = 'message error';
+                    adminMessage.classList.remove('hidden'); // Show message
+
+                }
+            } catch (error) {
+                console.error("Failed to fetch users:", error);
+                adminMessage.textContent = 'Failed to fetch users.';
+                adminMessage.className = 'message error';
+                adminMessage.classList.remove('hidden'); // Show message
+
+            }
+        };
+
+        fetchUsers();
+    });
+</script>
+</body>
+</html>

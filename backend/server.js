@@ -67,7 +67,9 @@ app.post('/api/login', async (req, res) => {
             return res.status(401).json({ success: false, message: 'Invalid username or password.' });
         }
 
-        req.session.user = { id: user.id, username: user.username };
+        req.session.user = { id: user.id, username: user.username, role: user.role };
+
+        //req.session.user = { id: user.id, username: user.username };
         res.json({ success: true, message: 'Login successful.' });
     } catch (error) {
         console.error("Login error:", error);
@@ -87,9 +89,61 @@ app.post('/api/logout', (req, res) => {
 
 app.get('/api/check-auth', (req, res) => {
     if (req.session.user) {
-        res.json({ loggedIn: true, username: req.session.user.username });
+        res.json({ loggedIn: true, username: req.session.user.username , role: req.session.user.role});
     } else {
         res.json({ loggedIn: false });
+    }
+});
+
+app.post('/api/change-password', async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!req.session.user) {
+        return res.status(401).json({ success: false, message: 'You must be logged in to change your password.' });
+    }
+
+    if (!currentPassword || !newPassword) {
+        return res.status(400).json({ success: false, message: 'Please fill in all password fields.' });
+    }
+
+    try {
+        const [users] = await db.query('SELECT * FROM users WHERE username = ?', [req.session.user.username]);
+        if (users.length === 0) {
+            return res.status(401).json({ success: false, message: 'User not found.' });
+        }
+        const user = users[0];
+        const match = await bcrypt.compare(currentPassword, user.password);
+        if (!match) {
+            return res.status(401).json({ success: false, message: 'Invalid current password.' });
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+        await db.query('UPDATE users SET password = ? WHERE username = ?', [hashedPassword, req.session.user.username]);
+        req.session.destroy(err => {
+            if (err) {
+                console.error("Change password error: ", err);
+                return res.status(500).json({success: false, message: "Failed to update password and logout."})
+            }
+            res.json({ success: true, message: 'Password changed successfully.' });
+        })
+
+    } catch (error) {
+        console.error("Change password error:", error);
+        res.status(500).json({ success: false, message: 'An error occurred while changing password.' });
+    }
+});
+
+app.get('/api/users', async (req, res) => {
+    if (!req.session.user || req.session.user.role !== 'admin') {
+        return res.status(403).json({ success: false, message: 'Bạn không có quyền truy cập trang này.' });
+    }
+
+    try {
+        const [users] = await db.query('SELECT username, email, role FROM users');
+        res.json({ success: true, users });
+    } catch (error) {
+        console.error("Error fetching users:", error);
+        res.status(500).json({ success: false, message: 'Failed to fetch users.' });
     }
 });
 
